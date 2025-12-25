@@ -80,6 +80,10 @@ if [ -n "$DB_HOST" ]; then
     else
         echo "Database connection established, running migrations..."
         php artisan migrate --force --no-interaction
+        
+        # Run admin user seeder
+        echo "Creating admin user if not exists..."
+        php artisan db:seed --class=AdminUserSeeder --force --no-interaction
     fi
 else
     echo "WARNING: No database configuration found (DB_HOST or DATABASE_URL)"
