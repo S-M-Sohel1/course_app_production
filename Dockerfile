@@ -54,9 +54,9 @@ COPY --from=frontend /app/public/build ./public/build
 # Install PHP dependencies with Composer
 RUN composer install --no-dev --optimize-autoloader
 
-# Set up Laravel for production
-RUN php artisan config:cache && \
-    php artisan route:cache && \
+# Don't cache config during build - Render sets env vars at runtime
+# Just cache routes and views which don't depend on env vars
+RUN php artisan route:cache && \
     php artisan view:cache
 
 # Set proper permissions
@@ -68,11 +68,15 @@ COPY docker/nginx/default.conf /etc/nginx/sites-available/default
 # Copy supervisor configuration
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+# Copy startup script
+COPY docker/start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+
 # Expose port 10000 for Render
 EXPOSE 10000
 
-# Start supervisor to manage Nginx and PHP-FPM
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Start using our startup script
+CMD ["/usr/local/bin/start.sh"]
 
 # --- Notes for Render Deployment ---
 # 1. This Dockerfile is for your web service on Render.
