@@ -27,6 +27,7 @@ FROM php:8.2-fpm AS backend
 # - libpq-dev: For PostgreSQL (if you use it)
 # - libonig-dev, libzip-dev: For PHP extensions
 # - libexif-dev, libgd-dev: For image manipulation
+# - libicu-dev: For intl extension (required by Filament)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -35,8 +36,10 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libzip-dev \
     libexif-dev \
+    libicu-dev \
     zip \
-    && docker-php-ext-install pdo pdo_mysql mbstring zip exif bcmath
+    && docker-php-ext-install pdo pdo_mysql mbstring zip exif bcmath intl \
+    && docker-php-ext-configure intl
 
 # Install Composer (PHP package manager)
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
