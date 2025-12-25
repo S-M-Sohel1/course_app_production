@@ -7,9 +7,37 @@ echo "Starting Laravel application..."
 php artisan config:clear || true
 php artisan cache:clear || true
 
-# Wait for database to be ready (if DATABASE_HOST is set)
-if [ -n "$DATABASE_HOST" ]; then
-    echo "Waiting for database..."
+# Parse DATABASE_URL if provided by Render
+if [ -n "$DATABASE_URL" ]; then
+    echo "Parsing DATABASE_URL..."
+    # Extract components from DATABASE_URL
+    # Format: mysql://user:password@host:port/database
+    proto="$(echo $DATABASE_URL | grep :// | sed -e's,^\(.*://\).*,\1,g')"
+    url="${DATABASE_URL/$proto/}"
+    
+    userpass="$(echo $url | grep @ | cut -d@ -f1)"
+    DB_USERNAME="$(echo $userpass | cut -d: -f1)"
+    DB_PASSWORD="$(echo $userpass | cut -d: -f2)"
+    
+    hostport="$(echo ${url/$userpass@/} | cut -d/ -f1)"
+    DB_HOST="$(echo $hostport | cut -d: -f1)"
+    DB_PORT="$(echo $hostport | cut -d: -f2)"
+    
+    DB_DATABASE="$(echo $url | grep / | cut -d/ -f2-)"
+    
+    export DB_CONNECTION=mysql
+    export DB_HOST
+    export DB_PORT
+    export DB_DATABASE
+    export DB_USERNAME
+    export DB_PASSWORD
+    
+    echo "Database configured from DATABASE_URL"
+fi
+
+# Wait for database to be ready (if DB_HOST is set)
+if [ -n "$DB_HOST" ]; then
+    echo "Waiting for database at $DB_HOST:$DB_PORT..."
     max_attempts=30
     attempt=0
     until php artisan migrate --force --no-interaction 2>/dev/null || [ $attempt -eq $max_attempts ]; do
@@ -20,10 +48,14 @@ if [ -n "$DATABASE_HOST" ]; then
     
     if [ $attempt -eq $max_attempts ]; then
         echo "WARNING: Could not connect to database after $max_attempts attempts"
+        echo "Continuing without database..."
     else
         echo "Database connection established, running migrations..."
         php artisan migrate --force --no-interaction
     fi
+else
+    echo "WARNING: No database configuration found (DB_HOST or DATABASE_URL)"
+    echo "Application will run without database connection"
 fi
 
 # Cache config with runtime environment variables
