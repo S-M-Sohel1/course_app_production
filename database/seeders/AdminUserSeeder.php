@@ -19,7 +19,6 @@ class AdminUserSeeder extends Seeder
                 'name' => 'Admin',
                 'email' => 'admin@courseapp.com',
                 'password' => Hash::make('Admin@123456'), // Change this password!
-                'email_verified_at' => now(),
             ]);
         }
     }
