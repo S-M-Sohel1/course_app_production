@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
     zip \
-    && docker-php-ext-install pdo pdo_mysql mbstring zip exif bcmath intl \
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring zip exif bcmath intl \
     && docker-php-ext-configure intl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 

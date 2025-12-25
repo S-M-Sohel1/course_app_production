@@ -11,9 +11,16 @@ php artisan cache:clear || true
 if [ -n "$DATABASE_URL" ]; then
     echo "Parsing DATABASE_URL..."
     # Extract components from DATABASE_URL
-    # Format: mysql://user:password@host:port/database
+    # Format: postgres://user:password@host:port/database or mysql://user:password@host:port/database
     proto="$(echo $DATABASE_URL | grep :// | sed -e's,^\(.*://\).*,\1,g')"
     url="${DATABASE_URL/$proto/}"
+    
+    # Determine database type
+    if [[ "$proto" == "postgres://" ]] || [[ "$proto" == "postgresql://" ]]; then
+        export DB_CONNECTION=pgsql
+    else
+        export DB_CONNECTION=mysql
+    fi
     
     userpass="$(echo $url | grep @ | cut -d@ -f1)"
     DB_USERNAME="$(echo $userpass | cut -d: -f1)"
@@ -23,16 +30,15 @@ if [ -n "$DATABASE_URL" ]; then
     DB_HOST="$(echo $hostport | cut -d: -f1)"
     DB_PORT="$(echo $hostport | cut -d: -f2)"
     
-    DB_DATABASE="$(echo $url | grep / | cut -d/ -f2-)"
+    DB_DATABASE="$(echo $url | grep / | cut -d/ -f2- | cut -d? -f1)"
     
-    export DB_CONNECTION=mysql
     export DB_HOST
     export DB_PORT
     export DB_DATABASE
     export DB_USERNAME
     export DB_PASSWORD
     
-    echo "Database configured from DATABASE_URL"
+    echo "Database configured: $DB_CONNECTION at $DB_HOST:$DB_PORT/$DB_DATABASE"
 fi
 
 # Wait for database to be ready (if DB_HOST is set)
