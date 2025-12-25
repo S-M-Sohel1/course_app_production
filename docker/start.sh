@@ -12,25 +12,47 @@ if [ -n "$DATABASE_URL" ]; then
     echo "Parsing DATABASE_URL..."
     # Extract components from DATABASE_URL
     # Format: postgres://user:password@host:port/database or mysql://user:password@host:port/database
-    proto="$(echo $DATABASE_URL | grep :// | sed -e's,^\(.*://\).*,\1,g')"
-    url="${DATABASE_URL/$proto/}"
     
-    # Determine database type
-    if [[ "$proto" == "postgres://" ]] || [[ "$proto" == "postgresql://" ]]; then
+    # Determine database type from protocol
+    if [[ "$DATABASE_URL" == postgres://* ]] || [[ "$DATABASE_URL" == postgresql://* ]]; then
         export DB_CONNECTION=pgsql
     else
         export DB_CONNECTION=mysql
     fi
     
-    userpass="$(echo $url | grep @ | cut -d@ -f1)"
-    DB_USERNAME="$(echo $userpass | cut -d: -f1)"
-    DB_PASSWORD="$(echo $userpass | cut -d: -f2)"
+    # Remove protocol
+    url="${DATABASE_URL#*://}"
     
-    hostport="$(echo ${url/$userpass@/} | cut -d/ -f1)"
-    DB_HOST="$(echo $hostport | cut -d: -f1)"
-    DB_PORT="$(echo $hostport | cut -d: -f2)"
+    # Extract user:password
+    userpass="${url%%@*}"
+    DB_USERNAME="${userpass%%:*}"
+    DB_PASSWORD="${userpass#*:}"
     
-    DB_DATABASE="$(echo $url | grep / | cut -d/ -f2- | cut -d? -f1)"
+    # Extract host:port/database
+    hostdb="${url#*@}"
+    
+    # Extract database name (everything after last /)
+    DB_DATABASE="${hostdb##*/}"
+    # Remove query params if any
+    DB_DATABASE="${DB_DATABASE%%\?*}"
+    
+    # Extract host:port (everything before /)
+    hostport="${hostdb%%/*}"
+    
+    # Extract port (everything after last :)
+    DB_PORT="${hostport##*:}"
+    # If no port specified, use defaults
+    if [ "$DB_PORT" = "$hostport" ]; then
+        if [ "$DB_CONNECTION" = "pgsql" ]; then
+            DB_PORT=5432
+        else
+            DB_PORT=3306
+        fi
+        DB_HOST="$hostport"
+    else
+        # Extract host (everything before last :)
+        DB_HOST="${hostport%:*}"
+    fi
     
     export DB_HOST
     export DB_PORT
