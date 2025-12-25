@@ -3,6 +3,12 @@ set -e
 
 echo "Starting Laravel application..."
 
+# Set APP_URL if RENDER_EXTERNAL_URL is available (Render provides this)
+if [ -n "$RENDER_EXTERNAL_URL" ]; then
+    export APP_URL="$RENDER_EXTERNAL_URL"
+    echo "APP_URL set to: $APP_URL"
+fi
+
 # Clear any cached config from build time
 php artisan config:clear || true
 php artisan cache:clear || true
