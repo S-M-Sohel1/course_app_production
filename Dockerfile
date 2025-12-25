@@ -54,6 +54,9 @@ COPY --from=frontend /app/public/build ./public/build
 # Install PHP dependencies with Composer
 RUN composer install --no-dev --optimize-autoloader
 
+# Ensure Filament assets are published
+RUN php artisan filament:assets
+
 # Don't cache config during build - Render sets env vars at runtime
 # Just cache routes and views which don't depend on env vars
 RUN php artisan route:cache && \
