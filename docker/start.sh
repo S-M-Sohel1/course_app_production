@@ -90,6 +90,12 @@ else
     echo "Application will run without database connection"
 fi
 
+# Clear all caches to ensure fresh start
+php artisan cache:clear
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+
 # Cache config with runtime environment variables
 php artisan config:cache
 
