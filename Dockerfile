@@ -18,16 +18,11 @@ COPY . .
 # The output will be in /app/public/build
 RUN npm run build
 
-# Stage 2 - Backend (Laravel + PHP + Composer)
-# This stage sets up the PHP environment and installs your Laravel application.
+# Stage 2 - Backend (Laravel + PHP + Nginx)
+# This stage sets up the PHP environment with Nginx web server
 FROM php:8.2-fpm AS backend
 
-# Install system dependencies required by Laravel and other packages
-# - git, curl, unzip, zip: Common utilities
-# - libpq-dev: For PostgreSQL (if you use it)
-# - libonig-dev, libzip-dev: For PHP extensions
-# - libexif-dev, libgd-dev: For image manipulation
-# - libicu-dev: For intl extension (required by Filament)
+# Install system dependencies and Nginx
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -37,9 +32,12 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libexif-dev \
     libicu-dev \
+    nginx \
+    supervisor \
     zip \
     && docker-php-ext-install pdo pdo_mysql mbstring zip exif bcmath intl \
-    && docker-php-ext-configure intl
+    && docker-php-ext-configure intl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer (PHP package manager)
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -51,24 +49,30 @@ WORKDIR /var/www
 COPY . .
 
 # Copy the built frontend assets from the 'frontend' stage
-# Laravel's vite plugin outputs to 'public/build' by default
 COPY --from=frontend /app/public/build ./public/build
 
 # Install PHP dependencies with Composer
-# --no-dev: Skips development dependencies
-# --optimize-autoloader: Creates a more efficient autoloader
 RUN composer install --no-dev --optimize-autoloader
 
 # Set up Laravel for production
-# These commands cache configuration, routes, and views for better performance
 RUN php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache
 
-# Expose port 9000 and start php-fpm server
-# This is the default port for PHP-FPM
-EXPOSE 9000
-CMD ["php-fpm"]
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+
+# Copy Nginx configuration
+COPY docker/nginx/default.conf /etc/nginx/sites-available/default
+
+# Copy supervisor configuration
+COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Expose port 10000 for Render
+EXPOSE 10000
+
+# Start supervisor to manage Nginx and PHP-FPM
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
 # --- Notes for Render Deployment ---
 # 1. This Dockerfile is for your web service on Render.
